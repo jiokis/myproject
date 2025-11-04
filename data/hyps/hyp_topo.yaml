@@ -30,10 +30,10 @@ mosaic: 0.5 # image mosaic (probability)
 mixup: 0.1 # image mixup (probability)
 copy_paste: 0.1 # segment copy-paste (probability)
 # hyp_topo.yaml
-lr0: 0.01  # 初始学习率
-lrf: 0.01  # 最终学习率因子
+lr0: 0.01 # 初始学习率
+lrf: 0.01 # 最终学习率因子
 momentum: 0.937
 weight_decay: 0.0005
-energy_beta: 0.01  # 黎曼能量损失权重（与loss.py对应）
-curvature_tol: 0.05  # 曲率波动容忍阈值
-homotopy_tol: 0.05  # 同胚性示性数差异阈值
+energy_beta: 0.01 # 黎曼能量损失权重（与loss.py对应）
+curvature_tol: 0.05 # 曲率波动容忍阈值
+homotopy_tol: 0.05 # 同胚性示性数差异阈值

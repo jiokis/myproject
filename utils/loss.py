@@ -14,7 +14,7 @@ def smooth_BCE(eps=0.1):
 
 
 def riemann_energy(x):
-    """计算黎曼能量 E_Riem = ∫det(g(P))dP，用协方差矩阵近似度规张量"""
+    """计算黎曼能量 E_Riem = ∫det(g(P))dP，用协方差矩阵近似度规张量."""
     # 展平特征维度 (batch*anchors*grid_h*grid_w, features)
     x_flat = x.view(-1, x.size(-1))
     if x_flat.size(0) < 2:  # 避免样本不足导致协方差计算错误
@@ -112,7 +112,6 @@ class ComputeLoss:
         # 新增：能量约束参数
         self.energy_beta = h.get("energy_beta", 0.01)  # 从超参获取权重，默认0.01
 
-
     def __call__(self, p, targets):
         lcls = torch.zeros(1, device=self.device)
         lbox = torch.zeros(1, device=self.device)
@@ -160,7 +159,6 @@ class ComputeLoss:
             layer_energy = riemann_energy(pi)
             lenergy += torch.var(layer_energy)  # 能量波动惩罚
 
-
         # 自动平衡
         if self.autobalance:
             self.balance = [x / self.balance[self.ssi] for x in self.balance]
@@ -176,7 +174,6 @@ class ComputeLoss:
         # 返回总损失和各分量（新增能量损失到返回值）
         return total_loss, torch.cat((lbox, lobj, lcls, lenergy)).detach()
 
-
     def build_targets(self, p, targets):
         na, nt = self.na, targets.shape[0]
         tcls, tbox, indices, anch = [], [], [], []
@@ -185,7 +182,7 @@ class ComputeLoss:
         targets = torch.cat((targets.repeat(na, 1, 1), ai[..., None]), 2)
 
         g = 0.5
-        off = (torch.tensor([[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1]], device=self.device).float() * g)
+        off = torch.tensor([[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1]], device=self.device).float() * g
 
         for i in range(self.nl):
             anchors, shape = self.anchors[i], p[i].shape
@@ -213,7 +210,7 @@ class ComputeLoss:
             gij = (gxy - offsets).long()
             gi, gj = gij.T
 
-            indices.append((b, a, gj.clamp_(0, shape[2]-1), gi.clamp_(0, shape[3]-1)))
+            indices.append((b, a, gj.clamp_(0, shape[2] - 1), gi.clamp_(0, shape[3] - 1)))
             tbox.append(torch.cat((gxy - gij, gwh), 1))
             anch.append(anchors[a])
             tcls.append(c)

@@ -17,16 +17,11 @@ import cv2
 import numpy as np
 import pandas as pd
 import requests
-
-from PIL import Image
-from torch.cuda import amp
-
-import warnings
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-
+from PIL import Image
+from torch.cuda import amp
 
 # Import 'ultralytics' package or install if missing
 try:
@@ -1118,11 +1113,10 @@ class Classify(nn.Module):
 
 import torch
 import torch.nn as nn
-from torch.autograd import Function
 
 
 class CurvatureAwareConv(nn.Module):
-    """低秩动态卷积，基于流形局部曲率调整秩r"""
+    """低秩动态卷积，基于流形局部曲率调整秩r."""
 
     def __init__(self, c1, c2, k=1, s=1, p=0, groups=1, r_base=8):
         super().__init__()
@@ -1133,7 +1127,7 @@ class CurvatureAwareConv(nn.Module):
             nn.ReLU(),
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(16, 1)  # 输出局部曲率K(P)
+            nn.Linear(16, 1),  # 输出局部曲率K(P)
         )
 
     def forward(self, x):
@@ -1154,13 +1148,19 @@ class CurvatureAwareConv(nn.Module):
         weight_lowrank = (U[:, :r] @ torch.diag(S_r) @ Vh[:r, :]).view(weight.shape)
 
         # 4. 用低秩权重进行卷积
-        return F.conv2d(x, weight_lowrank, self.base_conv.bias,
-                        self.base_conv.stride, self.base_conv.padding,
-                        self.base_conv.dilation, self.base_conv.groups)
+        return F.conv2d(
+            x,
+            weight_lowrank,
+            self.base_conv.bias,
+            self.base_conv.stride,
+            self.base_conv.padding,
+            self.base_conv.dilation,
+            self.base_conv.groups,
+        )
 
 
 class RiemannSampling(nn.Module):
-    """基于黎曼距离的局部特征采样，替代GAP"""
+    """基于黎曼距离的局部特征采样，替代GAP."""
 
     def __init__(self, kernel_size=2):
         super().__init__()
@@ -1170,7 +1170,7 @@ class RiemannSampling(nn.Module):
         # 计算局部区域内像素的黎曼距离（简化为特征向量欧氏距离）
         b, c, h, w = x.shape
         pad = (self.kernel_size - 1) // 2
-        x_pad = F.pad(x, (pad, pad, pad, pad), mode='replicate')
+        x_pad = F.pad(x, (pad, pad, pad, pad), mode="replicate")
 
         # 提取2x2局部窗口
         windows = F.unfold(x_pad, kernel_size=self.kernel_size, stride=2)  # (b, c*4, h/2*w/2)
@@ -1187,7 +1187,7 @@ class RiemannSampling(nn.Module):
 
 
 class HomotopyCheck(nn.Module):
-    """验证多尺度流形的同胚不变量（欧拉示性数）"""
+    """验证多尺度流形的同胚不变量（欧拉示性数）."""
 
     def __init__(self, tol=0.05):
         super().__init__()
@@ -1209,22 +1209,24 @@ class HomotopyCheck(nn.Module):
         # 验证同胚性（示性数差异≤tol）
         chi_ref = chis[0]
         for chi in chis[1:]:
-            assert torch.abs(chi - chi_ref) / chi_ref <= self.tol, \
-                f"流形同胚性破坏：示性数差异超阈值 {self.tol}"
+            assert torch.abs(chi - chi_ref) / chi_ref <= self.tol, f"流形同胚性破坏：示性数差异超阈值 {self.tol}"
         return x_list
 
     def count_components(self, x):
-        """简化的连通分量计数（实际可使用形态学操作）"""
-        b, c, h, w = x.shape
+        """简化的连通分量计数（实际可使用形态学操作）."""
+        _b, _c, _h, _w = x.shape
         return torch.tensor([1.0])  # 实际实现需补充连通域分析
+
 
 # models/common.py
 
+
 class CurvatureAwareConv(nn.Module):
-    """曲率感知卷积（替代部分1x1卷积）"""
+    """曲率感知卷积（替代部分1x1卷积）."""
+
     def __init__(self, c1, c2, k=1, r_base=8):
         super().__init__()
-        self.base_conv = nn.Conv2d(c1, c2, k, padding=k//2)
+        self.base_conv = nn.Conv2d(c1, c2, k, padding=k // 2)
         self.r_base = r_base  # 低秩近似基数
         self.curvature = nn.Parameter(torch.tensor(0.1))  # 可学习曲率参数
 
@@ -1244,19 +1246,20 @@ class CurvatureAwareConv(nn.Module):
 
 
 class HomotopyCheck(nn.Module):
-    """同胚性检查模块（软约束版）"""
+    """同胚性检查模块（软约束版）."""
+
     def __init__(self, tol=0.05):
         super().__init__()
         self.tol = tol  # 示性数差异阈值
         self.homotopy_loss = 0.0  # 同胚损失缓存
 
     def count_components(self, x):
-        """简化版连通分量计数（用阈值分割近似）"""
+        """简化版连通分量计数（用阈值分割近似）."""
         x_bin = (x > x.mean()).float()  # 二值化特征
         return torch.sum(torch.sum(x_bin, dim=(2, 3)) > 0)  # 非零通道数近似连通分量
 
     def forward(self, x_list):
-        """输入多尺度特征列表，计算同胚性损失"""
+        """输入多尺度特征列表，计算同胚性损失."""
         if not self.training:
             return x_list
         # 计算各尺度特征的欧拉示性数近似值（连通分量数）

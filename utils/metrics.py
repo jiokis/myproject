@@ -28,13 +28,14 @@ def smooth(y, f=0.05):
 
 # utils/metrics.py
 def compute_ap(precisions, recalls):
-    """原AP计算函数（保留）"""
+    """原AP计算函数（保留）."""
     # ...（原逻辑）
 
+
 def calculate_topo_metrics(preds, feats, targets, imgsz=640):
-    """计算拓扑相关验证指标"""
+    """计算拓扑相关验证指标."""
     # 1. 小目标AP（面积 < 32x32）
-    small_mask = (targets[:, 4] < 32/imgsz) & (targets[:, 5] < 32/imgsz)  # 归一化坐标
+    small_mask = (targets[:, 4] < 32 / imgsz) & (targets[:, 5] < 32 / imgsz)  # 归一化坐标
     small_preds = preds[small_mask]
     small_targets = targets[small_mask]
     small_aps = compute_ap(small_preds, small_targets)  # 复用原AP计算
@@ -43,7 +44,7 @@ def calculate_topo_metrics(preds, feats, targets, imgsz=640):
     # 简化版：统计与其他目标IOU>0.7的目标
     occluded_mask = torch.zeros(len(targets), dtype=torch.bool, device=targets.device)
     for i in range(len(targets)):
-        ious = box_iou(targets[i:i+1, 1:5], targets[:, 1:5])[0]  # 与其他目标的IOU
+        ious = box_iou(targets[i : i + 1, 1:5], targets[:, 1:5])[0]  # 与其他目标的IOU
         occluded_mask[i] = (ious > 0.7).sum() > 1  # 排除自身
     occluded_aps = compute_ap(preds[occluded_mask], targets[occluded_mask])
 
@@ -52,9 +53,9 @@ def calculate_topo_metrics(preds, feats, targets, imgsz=640):
     energy_std = torch.std(feat_vars).item()
 
     return {
-        'small_ap': small_aps.mean().item() if len(small_aps) > 0 else 0.0,
-        'occluded_ap': occluded_aps.mean().item() if len(occluded_aps) > 0 else 0.0,
-        'energy_std': energy_std
+        "small_ap": small_aps.mean().item() if len(small_aps) > 0 else 0.0,
+        "occluded_ap": occluded_aps.mean().item() if len(occluded_aps) > 0 else 0.0,
+        "energy_std": energy_std,
     }
 
 

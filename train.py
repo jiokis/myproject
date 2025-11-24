@@ -35,13 +35,11 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 import yaml
+
+# 新增：拓扑监控依赖
+from scipy.ndimage import label  # 用于连通分量计数（欧拉示性数）
 from torch.optim import lr_scheduler
 from tqdm import tqdm
-# 新增：拓扑监控依赖
-import numpy as np
-from scipy.ndimage import label  # 用于连通分量计数（欧拉示性数）
-from tensorboardX import SummaryWriter  # 用于拓扑指标可视化
-from utils.loss import riemann_energy  # 从loss.py导入黎曼能量计算函数
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -106,13 +104,11 @@ RANK = int(os.getenv("RANK", -1))
 WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
 GIT_INFO = check_git_info()
 
+
 def compute_euler_characteristic(feat):
+    """近似计算特征流形的欧拉示性数（基于连通分量计数） feat: 特征张量，shape=(b, c, h, w) return: 批次平均欧拉示性数（≈0为符合圆S¹拓扑）.
     """
-    近似计算特征流形的欧拉示性数（基于连通分量计数）
-    feat: 特征张量，shape=(b, c, h, w)
-    return: 批次平均欧拉示性数（≈0为符合圆S¹拓扑）
-    """
-    b, c, h, w = feat.shape
+    b, _c, _h, _w = feat.shape
     chi_list = []
     for i in range(b):
         # 1. 单张特征图：通道平均（降低维度）
@@ -121,7 +117,7 @@ def compute_euler_characteristic(feat):
         threshold = np.percentile(feat_single, 50)  # 中位数阈值
         feat_bin = (feat_single > threshold).astype(np.uint8)  # (h, w)，0/1二值图
         # 3. 连通分量计数（scipy.label：标记连通区域）
-        labeled, num_components = label(feat_bin)  # num_components：连通区域数量
+        _labeled, num_components = label(feat_bin)  # num_components：连通区域数量
         # 4. 欧拉示性数≈连通分量数 - 孔洞数（简化：假设无孔洞，孔洞数=0）
         # （注：若需精确，可加`from scipy.ndimage.morphology import binary_holes`计算孔洞数）
         holes = 0  # 简化假设：特征图无孔洞（符合YOLOv5同胚于圆的拓扑）
@@ -129,6 +125,7 @@ def compute_euler_characteristic(feat):
         chi_list.append(chi)
     # 返回批次平均示性数（越接近0越好）
     return torch.tensor(chi_list, dtype=torch.float32).mean().item()
+
 
 def train(hyp, opt, device, callbacks):
     """Train a YOLOv5 model on a custom dataset using specified hyperparameters, options, and device, managing datasets,
@@ -641,12 +638,15 @@ def parse_opt(known=False):
     # NDJSON logging
     parser.add_argument("--ndjson-console", action="store_true", help="Log ndjson to console")
     parser.add_argument("--ndjson-file", action="store_true", help="Log ndjson to file")
-    parser.add_argument('--topo-monitor', type=bool, default=False,
-                        help='enable topology monitoring (curvature/energy/euler)')
-    parser.add_argument('--curvature-thresh', type=float, default=0.05,
-                        help='max curvature fluctuation (≤thresh to keep topology)')
-    parser.add_argument('--energy-beta', type=float, default=0.01,
-                        help='weight for riemann energy loss (same as loss.py)')
+    parser.add_argument(
+        "--topo-monitor", type=bool, default=False, help="enable topology monitoring (curvature/energy/euler)"
+    )
+    parser.add_argument(
+        "--curvature-thresh", type=float, default=0.05, help="max curvature fluctuation (≤thresh to keep topology)"
+    )
+    parser.add_argument(
+        "--energy-beta", type=float, default=0.01, help="weight for riemann energy loss (same as loss.py)"
+    )
 
     return parser.parse_known_args()[0] if known else parser.parse_args()
 

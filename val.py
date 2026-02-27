@@ -20,7 +20,6 @@ Usage - formats:
 """
 
 import argparse
-import json
 import os
 import subprocess
 import sys
@@ -29,8 +28,9 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
+
+from utils.dataloaders import create_classification_dataloader
 from utils.metrics import calculate_topo_metrics  # 新增导入
-from utils.dataloaders import  create_classification_dataloader
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -39,27 +39,20 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from models.common import DetectMultiBackend
-from utils.callbacks import Callbacks
-from utils.dataloaders import create_dataloader
 from utils.general import (
     LOGGER,
     TQDM_BAR_FORMAT,
     Profile,
-    check_dataset,
     check_img_size,
     check_requirements,
     check_yaml,
-    coco80_to_coco91_class,
     colorstr,
     increment_path,
-    non_max_suppression,
     print_args,
-    scale_boxes,
-    xywh2xyxy,
     xyxy2xywh,
 )
-from utils.metrics import ConfusionMatrix, ap_per_class, box_iou
-from utils.plots import output_to_target, plot_images, plot_val_study
+from utils.metrics import box_iou
+from utils.plots import plot_val_study
 from utils.torch_utils import select_device, smart_inference_mode
 
 
@@ -188,23 +181,23 @@ def process_batch(detections, labels, iouv):
 
 @smart_inference_mode()
 def run(
-        data=ROOT / "../datasets/mnist",  # dataset dir
-        weights=ROOT / "yolov5s-cls.pt",  # model.pt path(s)
-        batch_size=128,  # batch size
-        imgsz=224,  # inference size (pixels)
-        device="",  # cuda device, i.e. 0 or 0,1,2,3 or cpu
-        workers=8,  # max dataloader workers (per RANK in DDP mode)
-        verbose=False,  # verbose output
-        project=ROOT / "runs/val-cls",  # save to project/name
-        name="exp",  # save to project/name
-        exist_ok=False,  # existing project/name ok, do not increment
-        half=False,  # use FP16 half-precision inference
-        dnn=False,  # use OpenCV DNN for ONNX inference
-        model=None,
-        dataloader=None,
-        criterion=None,
-        pbar=None,
-        topo_metrics=False  # 新增参数：是否计算拓扑指标
+    data=ROOT / "../datasets/mnist",  # dataset dir
+    weights=ROOT / "yolov5s-cls.pt",  # model.pt path(s)
+    batch_size=128,  # batch size
+    imgsz=224,  # inference size (pixels)
+    device="",  # cuda device, i.e. 0 or 0,1,2,3 or cpu
+    workers=8,  # max dataloader workers (per RANK in DDP mode)
+    verbose=False,  # verbose output
+    project=ROOT / "runs/val-cls",  # save to project/name
+    name="exp",  # save to project/name
+    exist_ok=False,  # existing project/name ok, do not increment
+    half=False,  # use FP16 half-precision inference
+    dnn=False,  # use OpenCV DNN for ONNX inference
+    model=None,
+    dataloader=None,
+    criterion=None,
+    pbar=None,
+    topo_metrics=False,  # 新增参数：是否计算拓扑指标
 ):
     """Validates a YOLOv5 classification model on a dataset, computing metrics like top1 and top5 accuracy."""
     # Initialize/load model and set device
@@ -259,7 +252,7 @@ def run(
                 if topo_metrics:
                     # 假设模型推理时会存储中间特征到feats属性
                     # 实际使用时需确保模型forward方法正确设置了中间特征
-                    if hasattr(model, 'feats'):
+                    if hasattr(model, "feats"):
                         feats_list.append(model.feats.detach().cpu())  # 存储特征并转移到CPU
                     else:
                         LOGGER.warning("Model does not have 'feats' attribute, cannot compute topological metrics")
@@ -298,12 +291,7 @@ def run(
         # 合并所有批次的特征
         feats = torch.cat(feats_list, dim=0)
         # 调用拓扑指标计算函数（需自行实现calculate_topo_metrics）
-        topo_results = calculate_topo_metrics(
-            pred=pred,
-            feats=feats,
-            targets=targets,
-            imgsz=imgsz
-        )
+        topo_results = calculate_topo_metrics(pred=pred, feats=feats, targets=targets, imgsz=imgsz)
         return top1, top5, loss, topo_results
     else:
         return top1, top5, loss
